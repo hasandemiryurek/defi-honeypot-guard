@@ -48,8 +48,9 @@ services:
       - SHARED_DIR=/shared
       - POLL_INTERVAL=2
       - GUARDIAN_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+      - MODEL_PATH=/app/honeypot_ai_model.pkl
     restart: unless-stopped
-   
+
   dashboard:
     build:
       context: .
@@ -59,8 +60,9 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - ai-agent
-    restart: unless-stopped 
+      deployer:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
 volumes:
   node_modules:

@@ -5,8 +5,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY agent.py config.py features.py blockchain.py reporter.py train.py mini_dataset.csv ./
+COPY agent/ ./agent/
+COPY ml/ ./ml/
 
-RUN python train.py
+RUN python ml/train.py
 
-CMD ["python", "agent.py"]
+CMD ["python", "-m", "agent.agent"]

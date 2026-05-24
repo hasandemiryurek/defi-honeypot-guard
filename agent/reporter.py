@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 from web3 import Web3
-from config import THREAT_RULES
+from agent.config import THREAT_RULES
 
 SEVERITY_COLOR = {"LOW": "\033[32m", "MEDIUM": "\033[33m",
                   "HIGH": "\033[91m", "CRITICAL": "\033[1;91m"}

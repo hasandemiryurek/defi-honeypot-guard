@@ -1,7 +1,7 @@
 import json, time
 from pathlib import Path
 from web3 import Web3
-from config import log, GUARDIAN_KEY
+from agent.config import log, GUARDIAN_KEY
 
 def connect_web3(rpc_url: str) -> Web3:
     for i in range(10):

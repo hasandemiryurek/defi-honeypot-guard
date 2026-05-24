@@ -81,7 +81,7 @@ def extract_features(bytecode: str) -> list:
 def main():
     print("=== Honeypot ML Model Trainer ===\n")
     try:
-        df = pd.read_csv("mini_dataset.csv")
+        df = pd.read_csv("ml/mini_dataset.csv")
     except FileNotFoundError:
         print("ERROR: mini_dataset.csv bulunamadi"); sys.exit(1)
 

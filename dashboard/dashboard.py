@@ -34,4 +34,4 @@ def get_stats():
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    return Path("/app/dashboard.html").read_text()
+    return Path("/app/dashboard/dashboard.html").read_text()

@@ -4,10 +4,10 @@ import joblib
 from pathlib import Path
 from web3 import Web3
 
-from config import log, RPC_URL, SHARED_DIR, MODEL_PATH, POLL_INTERVAL, SIGNAL_TO_CLASS
-from features import extract_features
-from blockchain import connect_web3, load_contract, pause_contract, parse_sus, parse_withdraw
-from reporter import build_report, print_report, save_report
+from agent.config import log, RPC_URL, SHARED_DIR, MODEL_PATH, POLL_INTERVAL, SIGNAL_TO_CLASS
+from agent.features import extract_features
+from agent.blockchain import connect_web3, load_contract, pause_contract, parse_sus, parse_withdraw
+from agent.reporter import build_report, print_report, save_report
 
 
 def load_model(model_path: str):
