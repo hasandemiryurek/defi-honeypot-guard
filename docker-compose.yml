@@ -1,5 +1,3 @@
-
-
 services:
   hardhat-node:
     image: node:20-alpine
@@ -33,7 +31,7 @@ services:
       - SHARED_DIR=/shared
       - RPC_URL=http://hardhat-node:8545
     command: >
-      sh -c "npx hardhat compile &&
+      sh -c "npx hardhat compile --force &&
              npx hardhat run scripts/deploy.js --network localhost"
     restart: "no"
 
@@ -49,7 +47,20 @@ services:
       - RPC_URL=http://hardhat-node:8545
       - SHARED_DIR=/shared
       - POLL_INTERVAL=2
+      - GUARDIAN_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
     restart: unless-stopped
+   
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ai-agent
+    restart: unless-stopped 
 
 volumes:
   node_modules:

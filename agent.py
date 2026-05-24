@@ -11,6 +11,8 @@ from pathlib import Path
 import joblib
 from web3 import Web3
 
+GUARDIAN_KEY = os.getenv("GUARDIAN_KEY", "")
+
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S")
@@ -290,6 +292,25 @@ def load_contract(w3, shared_dir):
         abi = json.load(f)["abi"]
     return w3.eth.contract(address=address, abi=abi)
 
+def pause_contract(w3: Web3, contract, reason: str):
+    if not GUARDIAN_KEY:
+        log.warning("GUARDIAN_KEY tanimli degil, pause atlaниди")
+        return
+    try:
+        account = w3.eth.account.from_key(GUARDIAN_KEY)
+        tx = contract.functions.pause(reason).build_transaction({
+            "from":     account.address,
+            "nonce":    w3.eth.get_transaction_count(account.address),
+            "gas":      100000,
+            "gasPrice": w3.eth.gas_price,
+        })
+        signed = w3.eth.account.sign_transaction(tx, GUARDIAN_KEY)
+        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+        w3.eth.wait_for_transaction_receipt(tx_hash)
+        log.warning("KONTRAT DURDURULDU — sebep: %s | tx: %s", reason, tx_hash.hex())
+    except Exception as exc:
+        log.error("Pause hatasi: %s", exc)
+
 
 def parse_sus(evt) -> dict:
     a = evt["args"]
@@ -325,6 +346,9 @@ def main():
                 report = build_report(event, attack_class, conf, is_contract, feats)
                 print_report(event, report)
                 save_report(event, report)
+                if report["severity"] in ("HIGH", "CRITICAL"):
+                    pause_contract(w3, contract, f"{report['attack_class']} tespit edildi")
+             
         except Exception as exc:
             log.error("Hata: %s", exc, exc_info=True)
             time.sleep(5)
