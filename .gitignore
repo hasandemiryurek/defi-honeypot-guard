@@ -15,3 +15,19 @@ node_modules
 
 # Hardhat Ignition default folder for deployments against a local node
 ignition/deployments/chain-31337
+
+.vscode_hardhat_config_*.ts
+honeypot_ai_model.pkl
+threat_log.jsonl
+desktop.ini
+*.pkl
+*.jsonl
+ml/mini_dataset.csv
+
+__pycache__/
+*.pyc
+*.pyo
+ml/mini_dataset.csv
+ml/*.csv
+*.pkl
+*.jsonl
