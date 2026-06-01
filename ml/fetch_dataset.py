@@ -27,54 +27,173 @@ BENIGN = [
     ("0xba100000625a3754423978a60c9317c58a424e3D", "BAL"),
 ]
 
+# DVDFi kaynak kodlarından türetilen gerçekçi EVM opcode pattern'leri.
+# Her biri bir DVDFi challenge'ına karşılık gelir.
 PATTERNS = {
+    # DVDFi: side-entrance — CALL external SSTORE'dan önce geliyor
     "REENTRANCY": (
         "6080604052"
-        + "600054"
-        + "f1" * 8
-        + "600055" * 4
-        + "f1f2" * 3
-        + "00"
+        "60003560e01c"
+        "63d2134b731461100057"
+        "60003560e01c"
+        "633ccfd60b1461200057"
+        "60003560e01c"
+        "63fc0e3d421461400057"
+        "6000fd"
+        "30315261"
+        "5a6000808080"
+        "6000f1"
+        "610000546000016100005561"
+        "303151106100005761"
     ),
+    # DVDFi: unstoppable — selfdestruct ile ERC4626 totalAssets invariant kırma
     "SELFDESTRUCT": (
         "6080604052"
-        + "ff" * 12
-        + "6000ff" * 4
-        + "00"
+        "60003560e01c"
+        "6318160ddd1461100057"
+        "60003560e01c"
+        "6301e3a1f41461300057"
+        "6000fd"
+        "6318160ddd"
+        "fa51"
+        "6301e3a1f4"
+        "fa51"
+        "8114156100005761"
+        "ff"
+        "6000ff"
     ),
+    # DVDFi: truster — flashLoan içinde saldırgan kontrollü target.call(data)
     "DELEGATECALL_ABUSE": (
         "6080604052"
-        + "f4" * 20
-        + "600060006000600060006000f4" * 3
-        + "00"
+        "60003560e01c"
+        "631cff79cd1461100057"
+        "6000fd"
+        "35600401"
+        "35602401"
+        "35604401"
+        "63a9059cbb"
+        "f1"
+        "36606403"
+        "6064"
+        "35"
+        "5af1"
+        "6370a08231"
+        "fa"
+        "51106100005761"
     ),
+    # DVDFi: climber — timelock execute() önce çalışıyor, isReady() sonra kontrol
     "FACTORY_ATTACK": (
         "6080604052"
-        + "f0" * 6
-        + "f5" * 6
-        + "600060006000f0" * 3
-        + "6000600060006000f5" * 3
-        + "00"
+        "60003560e01c"
+        "630825f38f1461100057"
+        "60003560e01c"
+        "63b1c5f4271461300057"
+        "6000fd"
+        "35600401"
+        "8051"
+        "6000"
+        "5b"
+        "5a6000"
+        "f4"
+        "600101818161105761"
+        "63584b9f56"
+        "fa"
+        "156100005761"
     ),
+    # DVDFi: puppet — UniswapV1 spot price oracle manipülasyonu
     "STORAGE_MANIP": (
         "6080604052"
-        + "55" * 15
-        + "".join(f"60{i:02x}60{i:02x}55" for i in range(8))
-        + "00"
+        "60003560e01c"
+        "634b8a35291461100057"
+        "60003560e01c"
+        "63e71bef881461300057"
+        "6000fd"
+        "6398995f81"
+        "fa51"
+        "6100020252"
+        "6323b872dd"
+        "f1"
+        "63a9059cbb"
+        "f1"
     ),
+    # DVDFi: selfie — flash loan ile governance token manipülasyonu
+    "FLASH_LOAN": (
+        "6080604052"
+        "60003560e01c"
+        "635cffe9be1461100057"
+        "60003560e01c"
+        "63aaf5eb681461300057"
+        "6000fd"
+        "600154600114"
+        "156100005761"
+        "6002600055"
+        "4752"
+        "63a9059cbb"
+        "f1"
+        "6338d52a2c"
+        "f1"
+        "6323b872dd"
+        "fa"
+        "4751116100005761"
+        "6001600055"
+    ),
+    # DVDFi: abi-smuggling — calldata offset manipülasyonu ile izin bypass
     "OBFUSCATED": (
         "6080604052"
-        + "57" * 10
-        + "56" * 10
-        + "5b" * 8
-        + "6001576001565b" * 5
-        + "00"
+        "60003560e01c"
+        "631cff79cd1461100057"
+        "6000fd"
+        "35600401"
+        "35602401"
+        "60643563"
+        "6335f4a7b3"
+        "14"
+        "156100005761"
+        "5af4"
+    ),
+    # DVDFi: free-rider — NFT transferden sonra owner değişiyor, msg.value reuse
+    "LOGIC_BUG": (
+        "6080604052"
+        "60003560e01c"
+        "6347c79fdd1461100057"
+        "60003560e01c"
+        "638a72ea641461300057"
+        "6000fd"
+        "5b"
+        "35600401"
+        "6000"
+        "5b"
+        "5134106100005761"
+        "6342842e0e"
+        "f1"
+        "636352211e"
+        "fa51"
+        "5a60008080"
+        "f1"
+        "6001018181611057"
+    ),
+    # DVDFi: naive-receiver — multicall delegatecall ile msg.value reuse
+    "ARBITRARY_CALL": (
+        "6080604052"
+        "60003560e01c"
+        "63ac9650d81461100057"
+        "6000fd"
+        "35600401"
+        "8051"
+        "6000"
+        "5b"
+        "5af4"
+        "6001018181611057"
+        "6301ffc9a7"
+        "f1"
+        "5134116100005761"
     ),
 }
 
 
 def fetch_code(addr, key):
-    r = requests.get(API, params={
+    r = requests.get("https://api.etherscan.io/v2/api", params={
+        "chainid": "1",
         "module": "proxy", "action": "eth_getCode",
         "address": addr, "tag": "latest", "apikey": key,
     }, timeout=10)
@@ -104,7 +223,7 @@ def main():
         except Exception as e:
             print(f"  ERR {desc}: {e}")
         time.sleep(0.25)
-        
+
     benign_count = sum(1 for r in rows if r["attack_type"] == "BENIGN")
     print(f"[+] {benign_count} BENIGN ornek toplandi")
     if benign_count < 10:

@@ -3,7 +3,7 @@ import sys
 import joblib
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
-from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report
 
@@ -50,9 +50,9 @@ def extract_features(bytecode: str) -> list:
     callvalue     = sum(1 for b in bytes_list if b == "34")
     unique_ops    = len(set(bytes_list))
 
-    jump_density    = (jump_count + jumpi_count) / total
-    f_density       = code.count("f") / len(code)
-    ff_density      = selfdestruct / total
+    jump_density = (jump_count + jumpi_count) / total
+    f_density    = code.count("f") / len(code)
+    ff_density   = selfdestruct / total
 
     return [
         len(code),
@@ -112,15 +112,18 @@ def main():
         scores = cross_val_score(model, X, y, cv=cv, scoring="f1_weighted")
         print(f"Cross-val F1 (weighted): {scores.mean():.3f} +/- {scores.std():.3f}\n")
     else:
-        print("Cross-validation skipped: bazi siniflar 1 ornekle sinirli\n")
+        print("Cross-validation skipped\n")
 
-    model.fit(X, y)
-    y_pred = model.predict(X)
-    print(classification_report(y, y_pred, target_names=le.classes_))
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    print(classification_report(y_test, y_pred, target_names=le.classes_))
 
     joblib.dump({"model": model, "label_encoder": le}, "honeypot_ai_model.pkl")
     print("\nModel kaydedildi: honeypot_ai_model.pkl")
 
 
 if __name__ == "__main__":
-    main()
+    main()g
