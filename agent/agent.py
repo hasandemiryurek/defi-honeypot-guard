@@ -21,19 +21,19 @@ def load_model(model_path: str):
 
 
 def classify(model, le, w3: Web3, address: str, event_signal: str) -> tuple:
-    bytecode    = w3.eth.get_code(address).hex()
-    is_contract = len(bytecode) > 2
+    bytecode     = w3.eth.get_code(address).hex()
+    is_contract  = len(bytecode) > 2
+    signal_class = SIGNAL_TO_CLASS.get(event_signal, "")
     if not is_contract:
-        return SIGNAL_TO_CLASS.get(event_signal, "BENIGN"), 0.55, False, [0.0] * 20
+        return signal_class or "BENIGN", 0.75, False, [0.0] * 26
     features     = extract_features(bytecode)
     label_id     = model.predict([features])[0]
     proba        = model.predict_proba([features])[0]
     attack_class = le.inverse_transform([label_id])[0]
     confidence   = float(proba[label_id])
-    if confidence < 0.6:
-        signal_class = SIGNAL_TO_CLASS.get(event_signal, attack_class)
-        if signal_class != "BENIGN":
-            attack_class = signal_class
+    if signal_class and signal_class != "BENIGN":
+        attack_class = signal_class
+        confidence   = max(confidence, 0.75)
     return attack_class, confidence, True, features
 
 
