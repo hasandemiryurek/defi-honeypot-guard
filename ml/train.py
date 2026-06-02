@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 import sys
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
-from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split
+from sklearn.model_selection import cross_val_score, StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report
+try:
+    from imblearn.over_sampling import SMOTE
+    HAS_SMOTE = True
+except ImportError:
+    HAS_SMOTE = False
 
 FEATURE_NAMES = [
     "bytecode_length", "f_hex_density", "call_opcode_count",
@@ -13,6 +19,8 @@ FEATURE_NAMES = [
     "sload_count", "jump_density", "call_sstore_combo",
     "delegatecall_ratio", "ff_density", "loop_indicator",
     "jumpdest_density", "push_density", "dup_swap_ratio",
+    "has_create2", "has_delegatecall", "sstore_density",
+    "create2_count", "delegatecall_count", "call_density",
     "comparison_density", "stop_revert_ratio", "mload_mstore_ratio",
     "callvalue_density", "unique_opcode_ratio",
 ]
@@ -21,7 +29,7 @@ FEATURE_NAMES = [
 def extract_features(bytecode: str) -> list:
     code = bytecode.replace("0x", "").lower()
     if len(code) < 4:
-        return [0.0] * 20
+        return [0.0] * 26
     bytes_list = [code[i:i+2] for i in range(0, len(code), 2)]
     total = len(bytes_list) or 1
 
@@ -47,22 +55,17 @@ def extract_features(bytecode: str) -> list:
     revert = sum(1 for b in bytes_list if b == "fd")
     mload  = sum(1 for b in bytes_list if b == "51")
     mstore = sum(1 for b in bytes_list if b == "52")
-    callvalue     = sum(1 for b in bytes_list if b == "34")
-    unique_ops    = len(set(bytes_list))
-
+    callvalue  = sum(1 for b in bytes_list if b == "34")
+    unique_ops = len(set(bytes_list))
+    
+    create2 = sum(1 for b in bytes_list if b == "f5")
     jump_density = (jump_count + jumpi_count) / total
     f_density    = code.count("f") / len(code)
     ff_density   = selfdestruct / total
 
     return [
-        len(code),
-        f_density,
-        call_ops,
-        selfdestruct,
-        create_ops,
-        sstore,
-        sload,
-        jump_density,
+        len(code), f_density, call_ops, selfdestruct, create_ops,
+        sstore, sload, jump_density,
         1.0 if call_ops > 0 and sstore > 0 else 0.0,
         call_f4 / call_ops if call_ops > 0 else 0.0,
         ff_density,
@@ -75,6 +78,12 @@ def extract_features(bytecode: str) -> list:
         (mload + mstore) / total,
         callvalue / total,
         unique_ops / 256.0,
+        1.0 if create2 > 0 else 0.0,
+        1.0 if call_f4 > 0 else 0.0,
+        sstore / total,
+        float(create2),
+        float(call_f4),
+        call_ops / total,
     ]
 
 
@@ -89,11 +98,38 @@ def main():
     print(df["attack_type"].value_counts().to_string())
     print()
 
-    X  = [extract_features(b) for b in df["bytecode"]]
-    le = LabelEncoder()
-    y  = le.fit_transform(df["attack_type"].tolist())
+    X_raw = [extract_features(b) for b in df["bytecode"]]
+    le    = LabelEncoder()
+    y_raw = le.fit_transform(df["attack_type"].tolist())
 
     print("Siniflar:", list(le.classes_), "\n")
+
+    if HAS_SMOTE:
+        counts = pd.Series(y_raw).value_counts()
+        min_count = counts.min()
+        if min_count < 6:
+            X_list, y_list = list(X_raw), list(y_raw)
+            for cls, cnt in counts.items():
+                if cnt < 6:
+                    idxs = [i for i, v in enumerate(y_raw) if v == cls]
+                    while len([v for v in y_list if v == cls]) < 6:
+                        X_list.append(X_raw[idxs[len(X_list) % len(idxs)]])
+                        y_list.append(cls)
+            X_raw, y_raw = X_list, y_list
+        k = min(5, pd.Series(y_raw).value_counts().min() - 1)
+        if k >= 1:
+            smote = SMOTE(k_neighbors=k, random_state=42)
+            X, y = smote.fit_resample(np.array(X_raw), np.array(y_raw))
+            orig = len(X_raw)
+            print(f"SMOTE: {orig} -> {len(X)} ornek (+{len(X)-orig} sentetik)")
+            print(pd.Series(y).map(dict(enumerate(le.classes_))).value_counts().to_string())
+            print()
+        else:
+            X, y = np.array(X_raw), np.array(y_raw)
+    else:
+        print("UYARI: imbalanced-learn yuklu degil, SMOTE atlanıyor.")
+        print("       pip install imbalanced-learn  ile yukleyin.\n")
+        X, y = np.array(X_raw), np.array(y_raw)
 
     rf = RandomForestClassifier(
         n_estimators=200, max_depth=12, min_samples_leaf=1,
@@ -112,18 +148,15 @@ def main():
         scores = cross_val_score(model, X, y, cv=cv, scoring="f1_weighted")
         print(f"Cross-val F1 (weighted): {scores.mean():.3f} +/- {scores.std():.3f}\n")
     else:
-        print("Cross-validation skipped\n")
+        print("Cross-validation skipped: bazi siniflar 1 ornekle sinirli\n")
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    print(classification_report(y_test, y_pred, target_names=le.classes_))
+    model.fit(X, y)
+    y_pred = model.predict(X)
+    print(classification_report(y, y_pred, target_names=le.classes_))
 
     joblib.dump({"model": model, "label_encoder": le}, "honeypot_ai_model.pkl")
     print("\nModel kaydedildi: honeypot_ai_model.pkl")
 
 
 if __name__ == "__main__":
-    main()g
+    main()

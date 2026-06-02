@@ -1,7 +1,7 @@
 def extract_features(bytecode: str) -> list:
     code = bytecode.replace("0x", "").lower()
     if len(code) < 4:
-        return [0.0] * 20
+        return [0.0] * 26
     bytes_list = [code[i:i+2] for i in range(0, len(code), 2)]
     total = len(bytes_list) or 1
 
@@ -29,7 +29,8 @@ def extract_features(bytecode: str) -> list:
     mstore = sum(1 for b in bytes_list if b == "52")
     callvalue  = sum(1 for b in bytes_list if b == "34")
     unique_ops = len(set(bytes_list))
-
+    
+    create2 = sum(1 for b in bytes_list if b == "f5")
     jump_density = (jump_count + jumpi_count) / total
     f_density    = code.count("f") / len(code)
     ff_density   = selfdestruct / total
@@ -49,4 +50,10 @@ def extract_features(bytecode: str) -> list:
         (mload + mstore) / total,
         callvalue / total,
         unique_ops / 256.0,
+        1.0 if create2 > 0 else 0.0,
+        1.0 if call_f4 > 0 else 0.0,
+        sstore / total,
+        float(create2),
+        float(call_f4),
+        call_ops / total,
     ]
