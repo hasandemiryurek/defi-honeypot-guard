@@ -34,21 +34,21 @@ def find_artifact(name):
 
 def main():
     if not ARTIFACTS.exists():
-        print("HATA: artifacts/ klasoru bulunamadi. Once 'npx hardhat compile' calistir.")
+        print("HATA: artifacts/ cannot be found. Please run 'npx hardhat compile' first.")
         return
     rows, seen = load_existing()
     added = 0
     for contract_name, attack_type in ARTIFACT_MAP:
         path = find_artifact(contract_name)
         if not path:
-            print(f"  -- {contract_name}: artifact bulunamadi"); continue
+            print(f"  -- {contract_name}: cannot be found"); continue
         data = json.loads(path.read_text())
         bytecode = data.get("bytecode", "")
         if not bytecode or bytecode == "0x" or len(bytecode) < 20:
-            print(f"  -- {contract_name}: bytecode bos"); continue
+            print(f"  -- {contract_name}: bytecode is empty"); continue
         key = bytecode[:40]
         if key in seen:
-            print(f"  ~~ {contract_name}: zaten mevcut"); continue
+            print(f"  ~~ {contract_name}: already exists"); continue
         label = LABEL_ORDER.index(attack_type) if attack_type in LABEL_ORDER else 0
         rows.append({"bytecode": bytecode, "label": label,
                      "attack_type": attack_type, "description": f"Local_{contract_name}"})

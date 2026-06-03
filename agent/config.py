@@ -16,111 +16,111 @@ THREAT_RULES = {
         "severity": "CRITICAL",
         "mitre": "CAPEC-17: Smart Contract Reentrancy",
         "iocs": [
-            "CALL (0xf1) opcode oncesinde SSTORE (0x55) sifirlanmiyor",
-            "Tek transaction icinde ayni fonksiyon tekrar cagriliyor",
-            "receive() / fallback() icinde withdraw() cagrisi mevcut",
+            "SSTORE (0x55) not cleared before CALL (0xf1) opcode",
+            "Same function re-entered within a single transaction",
+            "withdraw() call present inside receive() / fallback()",
         ],
         "defenses": [
-            "Checks-Effects-Interactions (CEI) pattern uygula",
-            "OpenZeppelin ReentrancyGuard modifier kullan",
-            "Pull-payment pattern tercih et",
+            "Apply Checks-Effects-Interactions (CEI) pattern",
+            "Use OpenZeppelin ReentrancyGuard modifier",
+            "Prefer pull-payment pattern over push",
         ],
         "summary": (
-            "Reentrancy saldirisi: sozlesme ETH gondermeden once bakiyeyi sifirlamiyor. "
-            "Saldirgan kendi receive() fonksiyonunda tekrar withdraw() cagirarak "
-            "fonlari defalarca cekebilir. The DAO hack bu aciкla ~$60M calmistir."
+            "Reentrancy attack: contract does not zero the balance before sending ETH. "
+            "Attacker re-invokes withdraw() from their own receive() function, "
+            "draining funds repeatedly. The DAO hack exploited this flaw for ~$60M."
         ),
     },
     "SELFDESTRUCT": {
         "severity": "HIGH",
         "mitre": "CAPEC-175: SELFDESTRUCT Griefing",
         "iocs": [
-            "Bytecode icinde 0xff (SELFDESTRUCT) opcode mevcut",
-            "Sozlesme kendini yok edip tum bakiyeyi hedef adrese gonderebilir",
+            "0xff (SELFDESTRUCT) opcode present in bytecode",
+            "Contract can self-destruct and forward entire balance to target address",
         ],
         "defenses": [
-            "Sozlesmelerde SELFDESTRUCT kullanimini denetle",
-            "selfdestruct() cagrisini onlyOwner ile sinirla",
-            "Upgradeable proxy implementation sozlesmelerini koru",
+            "Audit all SELFDESTRUCT usage in contracts",
+            "Restrict selfdestruct() calls with onlyOwner modifier",
+            "Protect upgradeable proxy implementation contracts",
         ],
         "summary": (
-            "SELFDESTRUCT saldirisi: bytecode'da yikim opcode'u tespit edildi. "
-            "Sozlesme tum bakiyesini belirtilen adrese transfer edip zincirden silinebilir."
+            "SELFDESTRUCT attack: destruction opcode detected in bytecode. "
+            "Contract can transfer its entire balance to a specified address and be removed from chain."
         ),
     },
     "DELEGATECALL_ABUSE": {
         "severity": "CRITICAL",
         "mitre": "CAPEC-22: DELEGATECALL Proxy Hijack",
         "iocs": [
-            "0xf4 (DELEGATECALL) opcode yuksek yogunlukta",
-            "Harici sozlesmenin kodu caller'in storage'inda calisiyor",
-            "Storage slot cakismasi ile owner degiskeni uzerine yazilabilir",
+            "High density of 0xf4 (DELEGATECALL) opcode",
+            "External contract code executing in caller's storage context",
+            "Owner variable overwritable via storage slot collision",
         ],
         "defenses": [
-            "DELEGATECALL yalnizca guvenilir implementation adreslerine yap",
-            "OpenZeppelin TransparentUpgradeableProxy kullan",
-            "Implementation adresini immutable yap veya timelock koy",
+            "Only DELEGATECALL to trusted implementation addresses",
+            "Use OpenZeppelin TransparentUpgradeableProxy",
+            "Make implementation address immutable or add a timelock",
         ],
         "summary": (
-            "DELEGATECALL kotüye kullanimi: harici kod caller sozlesmesinin "
-            "storage'inda calisiyor. Saldirgan owner adresini degistirebilir."
+            "DELEGATECALL abuse: external code runs inside the caller contract's storage. "
+            "Attacker can overwrite the owner address and take full control."
         ),
     },
     "FACTORY_ATTACK": {
         "severity": "HIGH",
         "mitre": "CAPEC-13: Malicious Contract Factory",
         "iocs": [
-            "0xf0 (CREATE) veya 0xf5 (CREATE2) opcode yogun kullanimi",
-            "CREATE2 ile onceden hesaplanan adrese kotü amacli kod yerlestirme",
+            "Heavy use of 0xf0 (CREATE) or 0xf5 (CREATE2) opcodes",
+            "Deploying malicious code to pre-computed addresses via CREATE2",
         ],
         "defenses": [
-            "Dis factory sozlesmelerinden gelen adresleri dogrula",
-            "CREATE2 ile deploy edilen sozlesmelerin bytecode hash'ini kontrol et",
+            "Validate addresses received from external factory contracts",
+            "Verify bytecode hash of CREATE2-deployed contracts",
         ],
         "summary": (
-            "Factory saldirisi: CREATE/CREATE2 ile cok sayida sozlesme deploy ediliyor. "
-            "Saldirgan bilinen adreslere zarali sozlesmeler yerlestiriyor."
+            "Factory attack: many contracts deployed via CREATE/CREATE2. "
+            "Attacker plants malicious contracts at known addresses."
         ),
     },
     "STORAGE_MANIP": {
         "severity": "MEDIUM",
         "mitre": "CAPEC-165: Storage Slot Collision",
         "iocs": [
-            "0x55 (SSTORE) opcode yogun kullanimi, external call olmaksizin",
-            "Kritik storage slot'larina dogrudan yazma girisimi",
+            "High SSTORE (0x55) opcode density without external calls",
+            "Attempt to write directly to critical storage slots",
         ],
         "defenses": [
-            "Storage erisimini access control modifier ile koru",
-            "Kritik degiskenleri private yap, setter kontrolu ekle",
+            "Protect storage access with access control modifiers",
+            "Declare critical variables private and add setter guards",
         ],
         "summary": (
-            "Storage manipülasyonu: yoğun SSTORE kullanimi tespit edildi. "
-            "Saldirgan kritik durum degiskenlerine dogrudan yazarak "
-            "sozlesme kontrolunu ele gecirmeye calisiyor."
+            "Storage manipulation: high SSTORE density detected. "
+            "Attacker attempts to overwrite critical state variables "
+            "to seize control of the contract."
         ),
     },
     "OBFUSCATED": {
         "severity": "MEDIUM",
         "mitre": "CAPEC-267: Bytecode Obfuscation",
         "iocs": [
-            "Anormal yuksek JUMP/JUMPI (0x56/0x57) yogunlugu",
-            "Gercek saldiri vektoru gizlenmis olabilir",
+            "Abnormally high JUMP/JUMPI (0x56/0x57) density",
+            "Real attack vector may be hidden",
         ],
         "defenses": [
-            "Symbolic execution ile (Mythril, Manticore) derin analiz yap",
-            "Bytecode'u decompiler ile (Dedaub, Heimdall) incele",
+            "Run deep analysis with symbolic execution (Mythril, Manticore)",
+            "Inspect bytecode with a decompiler (Dedaub, Heimdall)",
         ],
         "summary": (
-            "Gizlenmis bytecode: kontrolun akisi normalden cok daha fazla "
-            "kosullu dal iceriyor. Gercek saldiri mantigi gizlenmis olabilir."
+            "Obfuscated bytecode: control flow contains far more conditional branches "
+            "than normal. The actual attack logic may be concealed."
         ),
     },
     "BENIGN": {
         "severity": "LOW",
         "mitre": "N/A",
-        "iocs": ["Bilinen zararli opcode pattern'i tespit edilmedi"],
-        "defenses": ["Standart guvenlik denetimi yeterli"],
-        "summary": "Normal sozlesme davranisi. Bilinen saldiri pattern'i tespit edilmedi.",
+        "iocs": ["No known malicious opcode pattern detected"],
+        "defenses": ["Standard security audit is sufficient"],
+        "summary": "Normal contract behaviour. No known attack pattern detected.",
     },
 }
 
@@ -129,6 +129,8 @@ SIGNAL_TO_CLASS = {
     "DIRECT_ETH_TRANSFER":      "FACTORY_ATTACK",
     "UNKNOWN_SELECTOR":         "OBFUSCATED",
     "TX_ORIGIN_EXPLOIT":        "DELEGATECALL_ABUSE",
+    "DELEGATECALL_ABUSE":       "DELEGATECALL_ABUSE",
+    "DELEGATECALL_ATTEMPT":     "DELEGATECALL_ABUSE",
     "OVERFLOW_ATTEMPT":         "STORAGE_MANIP",
     "FRONTRUN_TIMESTAMP_MANIP": "STORAGE_MANIP",
 }

@@ -3,9 +3,6 @@
 BENIGN  : Uniswap/Compound token listesinden (GitHub raw) → Etherscan bytecode
 MALICIOUS: DeFiHackLabs sol dosyaları + Forta labelled-datasets → Etherscan bytecode
 
-Kullanim:
-  Tam cekis:        python ml/fetch_dataset.py --key API_KEY
-  Sadece malicious: python ml/fetch_dataset.py --key API_KEY --skip-benign --load-benign ml/mini_dataset.csv
 """
 import time, csv, argparse, re, json, subprocess, shutil, sys
 import urllib.parse
@@ -61,7 +58,7 @@ def fetch_benign_contracts(limit=300):
     contracts = []
     seen = set()
     for url in sources:
-        print(f"[*] Token listesi cekiliyor: {url.split('/')[-1]}")
+        print(f"[*] Fetching token list: {url.split('/')[-1]}")
         try:
             data = _get_json(url)
             tokens = data if isinstance(data, list) else data.get("tokens", [])
@@ -74,7 +71,7 @@ def fetch_benign_contracts(limit=300):
                     seen.add(addr.lower())
         except Exception as e:
             print(f"  ERR {url}: {e}")
-    print(f"  >> {len(contracts)} BENIGN kontrat bulundu, ilk {limit} alinacak")
+    print(f"  >> {len(contracts)} BENIGN contracts found, first {limit} will be fetched")
     return contracts[:limit]
 
 
@@ -85,9 +82,9 @@ def load_benign_from_csv(path):
             for row in csv.DictReader(f):
                 if row.get("attack_type") == "BENIGN":
                     rows.append(row)
-        print(f"[*] {path} dosyasindan {len(rows)} BENIGN satir yuklendi")
+        print(f"[*] {path} dosyasindan {len(rows)} BENIGN row is loaded")
     except Exception as e:
-        print(f"  ERR CSV yukle: {e}")
+        print(f"  ERR CSV load: {e}")
     return rows
 
 
@@ -154,10 +151,10 @@ def fetch_malicious_from_github(max_files=691):
                 results[attack_type].append((addr, f"DeFiHackLabs_{filename[:40]}"))
                 seen.add(addr.lower())
         if i % 20 == 0:
-            print(f"  .. {i}/{len(sol_files)} dosya tarandı, "
-                  f"{sum(len(v) for v in results.values())} adres bulundu")
+            print(f"  .. {i}/{len(sol_files)} file scanned, "
+                  f"{sum(len(v) for v in results.values())} addresses found")
         time.sleep(0.05)
-    print(f"  >> Toplam {sum(len(v) for v in results.values())} adres (DeFiHackLabs):")
+    print(f"  >> Total {sum(len(v) for v in results.values())} addresses (DeFiHackLabs):")
     for k, v in results.items():
         print(f"     {k}: {len(v)}")
     return results
@@ -165,7 +162,7 @@ def fetch_malicious_from_github(max_files=691):
 
 def fetch_forta_malicious():
     url = "https://raw.githubusercontent.com/forta-network/labelled-datasets/main/labels/1/malicious_smart_contracts.csv"
-    print("[*] Forta labelled-datasets cekiliyor...")
+    print("[*] Forta labelled-datasets is fetching")
     try:
         content = _get(url)
     except Exception as e:
@@ -239,7 +236,7 @@ def main():
                 print(f"  --  [{i:3d}] {symbol:<12} (bos/EOA)")
             time.sleep(0.22)
 
-    print(f"\n[+] {sum(1 for r in rows if r['attack_type']=='BENIGN')} BENIGN ornek hazir")
+    print(f"\n[+] {sum(1 for r in rows if r['attack_type']=='BENIGN')} BENIGN samples ready, now fetching MALICIOUS samples")
 
     print()
     malicious_map = fetch_malicious_from_github(args.sol_limit)
@@ -250,7 +247,7 @@ def main():
             if addr.lower() not in existing:
                 malicious_map[k].append((addr, desc))
 
-    print(f"\n[*] Zararlı adresler Etherscan'dan cekiliyor...")
+    print(f"\n[*] malicious addressess fetching from Etherscan using API key")
     for attack_type, addresses in malicious_map.items():
         label = LABEL_MAP.get(attack_type, 0)
         found = 0
@@ -264,7 +261,7 @@ def main():
             else:
                 print(f"  --  {attack_type:<20} {addr} (bos/selfdestruct)")
             time.sleep(0.22)
-        print(f"  >> {attack_type}: {found}/{len(addresses)} bytecode bulundu")
+        print(f"  >> {attack_type}: {found}/{len(addresses)} bytecode found")
 
     with open(args.out, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=["bytecode", "label", "attack_type", "description"])
@@ -273,7 +270,7 @@ def main():
 
     from collections import Counter
     counts = Counter(r["attack_type"] for r in rows)
-    print(f"\n[+] {args.out} yazildi — {len(rows)} tamamen gercek ornek")
+    print(f"\n[+] {args.out} yazildi — {len(rows)} real samples:")
     for k in ["BENIGN"] + [k for k in LABEL_MAP if k != "BENIGN"]:
         print(f"    {k:<20}: {counts.get(k, 0)}")
 

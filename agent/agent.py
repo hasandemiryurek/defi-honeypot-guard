@@ -12,11 +12,11 @@ from agent.reporter import build_report, print_report, save_report
 
 def load_model(model_path: str):
     if not Path(model_path).exists():
-        log.warning("Model bulunamadi, train.py calistiriliyor...")
+        log.warning("Model can not be found, train.py is being executed...")
         import subprocess
         subprocess.run(["python", "train.py"], check=True)
     data  = joblib.load(model_path)
-    log.info("Model yuklendi | Siniflar: %s", list(data["label_encoder"].classes_))
+    log.info("Model loaded | Classes: %s", list(data["label_encoder"].classes_))
     return data["model"], data["label_encoder"]
 
 
@@ -38,13 +38,13 @@ def classify(model, le, w3: Web3, address: str, event_signal: str) -> tuple:
 
 
 def main():
-    log.info("Honeypot AI Monitor baslatiliyor...")
+    log.info("Honeypot AI Monitor starting up")
     w3       = connect_web3(RPC_URL)
     model, le = load_model(MODEL_PATH)
     contract  = load_contract(w3, SHARED_DIR)
     sus_f     = contract.events.SuspiciousActivity.create_filter(from_block="latest")
     wd_f      = contract.events.WithdrawAttempt.create_filter(from_block="latest")
-    log.info("Monitor aktif — saldiri bekleniyor...")
+    log.info("Monitor active — waiting for attacks")
 
     while True:
         try:
@@ -53,15 +53,15 @@ def main():
             for event in events:
                 attack_class, conf, is_contract, feats = \
                     classify(model, le, w3, event["actor"], event["attackType"])
-                log.info("Olay: %s | Sinif: %s | Guven: %.1f%%",
+                log.info("Event: %s | Class: %s | Confidence: %.1f%%",
                          event["attackType"], attack_class, conf * 100)
                 report = build_report(event, attack_class, conf, is_contract, feats)
                 print_report(event, report)
                 save_report(event, report)
                 if report["severity"] in ("HIGH", "CRITICAL"):
-                    pause_contract(w3, contract, f"{report['attack_class']} tespit edildi")
+                    pause_contract(w3, contract, f"{report['attack_class']} detected")
         except Exception as exc:
-            log.error("Hata: %s", exc, exc_info=True)
+            log.error("Error: %s", exc, exc_info=True)
             time.sleep(5)
         time.sleep(POLL_INTERVAL)
 

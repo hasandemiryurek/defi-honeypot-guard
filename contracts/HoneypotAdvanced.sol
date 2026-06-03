@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 contract HoneypotAdvanced {
-    mapping(address => uint256) public balances;
-    address public owner;
-    bool    public isPaused;
+    mapping(address => uint256) public balances; // slot 0
+    address public owner;                        // slot 1
+    bool    public isPaused;                     // slot 2
 
     event SuspiciousActivity(
         string     attackType,
@@ -42,34 +42,70 @@ contract HoneypotAdvanced {
         balances[msg.sender] += msg.value;
     }
 
-        function withdraw() external whenNotPaused {
+    function withdraw() external whenNotPaused {
         uint256 bal = balances[msg.sender];
         require(bal > 0, "Yetersiz bakiye");
 
+        if (msg.sender.code.length > 0) {
+            emit SuspiciousActivity(
+                "DELEGATECALL_ATTEMPT", msg.sender, bal,
+                abi.encodePacked(msg.sender.code.length)
+            );
+        }
+
         emit WithdrawAttempt(msg.sender, bal);
 
-        // CEI: balance sifirla, sonra transfer et
         balances[msg.sender] = 0;
-
-        // 2300 gas ile reentrancy'yi fiziksel olarak engelle
         (bool sent, ) = msg.sender.call{value: bal, gas: 2300}("");
         if (!sent) {
-            // Reentrancy tespit edildi — balance'i geri yukle, event at
             balances[msg.sender] = bal;
             emit SuspiciousActivity("REENTRANCY_WITHDRAW", msg.sender, bal, "");
         }
     }
 
     function claimBonus(uint256 amount) external whenNotPaused {
-        emit SuspiciousActivity("OVERFLOW_ATTEMPT", msg.sender, amount, abi.encodePacked(amount));
+        if (amount > type(uint128).max) {
+            emit SuspiciousActivity(
+                "OVERFLOW_ATTEMPT", msg.sender, amount,
+                abi.encodePacked(amount)
+            );
+            return;
+        }
+        if (balances[msg.sender] > 0) {
+            balances[msg.sender] += (amount * 110) / 100;
+        }
+    }
+
+    function delegateExecute(address impl, bytes calldata data) external whenNotPaused {
+        require(impl != address(0), "Invalid impl");
+        address ownerBefore = owner;
+        (bool ok, ) = impl.delegatecall(data);
+        if (!ok || owner != ownerBefore) {
+            owner = ownerBefore;
+            emit SuspiciousActivity(
+                "DELEGATECALL_ABUSE", msg.sender, 0,
+                abi.encodePacked(impl)
+            );
+        }
     }
 
     function transferOwnership(address newOwner) external whenNotPaused {
-        emit SuspiciousActivity("TX_ORIGIN_EXPLOIT", msg.sender, 0, abi.encodePacked(newOwner));
+        if (tx.origin != msg.sender) {
+            emit SuspiciousActivity(
+                "TX_ORIGIN_EXPLOIT", msg.sender, 0,
+                abi.encodePacked(newOwner)
+            );
+            return;
+        }
+        require(msg.sender == owner, "Not owner");
+        owner = newOwner;
     }
 
     function luckyDraw() external payable whenNotPaused {
-        emit SuspiciousActivity("FRONTRUN_TIMESTAMP_MANIP", msg.sender, msg.value, abi.encodePacked(block.timestamp));
+        emit SuspiciousActivity(
+            "FRONTRUN_TIMESTAMP_MANIP", msg.sender, msg.value,
+            abi.encodePacked(block.timestamp)
+        );
     }
 
     receive() external payable whenNotPaused {

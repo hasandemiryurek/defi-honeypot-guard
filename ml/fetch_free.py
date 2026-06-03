@@ -5,7 +5,6 @@ Ucretsiz kaynaklardan bytecode ceker:
 2. DeFi Llama API'den protokol adresleri (cesitli siniflar)
 3. Bilinen sabit adresler
 
-Kullanim: python ml/fetch_free.py YOUR_ETHERSCAN_KEY
 """
 import json, csv, time, subprocess, shutil, sys, urllib.parse, urllib.request
 from pathlib import Path
@@ -21,7 +20,7 @@ LABEL_MAP = {
     "STORAGE_MANIP": 5, "OBFUSCATED": 6,
 }
 
-# --- Sabit adresler ---
+
 REENTRANCY_CONTRACTS = [
     ("0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd", "SushiMasterChefV1"),
     ("0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d", "SushiMasterChefV2"),
@@ -202,10 +201,10 @@ def eth_call(to, data, api_key):
 
 
 def get_uniswap_v2_pairs(api_key, count=20):
-    """Uniswap V2 factory'den pair adreslerini ceker."""
+    """Uniswap V2 factory pair addressess."""
     factory = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
     pairs = []
-    print(f"[*] Uniswap V2'den {count} pair adresi aliniyor...")
+    print(f"[*] Uniswap V2'den {count} fetching pair addresses for factory attack samples")
     for i in range(count):
         data = "0x1e3dd18b" + hex(i)[2:].zfill(64)
         result = eth_call(factory, data, api_key)
@@ -215,17 +214,17 @@ def get_uniswap_v2_pairs(api_key, count=20):
                 pairs.append(addr)
         time.sleep(0.22)
         if (i + 1) % 20 == 0:
-            print(f"  .. {i+1}/{count} sorgu tamamlandi, {len(pairs)} pair bulundu")
-    print(f"  >> {len(pairs)} Uniswap V2 pair adresi alindi")
+            print(f"  .. {i+1}/{count} queries completed, {len(pairs)} pairs found")
+    print(f"  >> {len(pairs)} Uniswap V2 pair addresses fetched")
     return pairs
 
 
 def get_defillama_contracts():
-    """DeFi Llama'dan protokol adreslerini ceker (ucretsiz, API key gerekmez)."""
-    print("[*] DeFi Llama'dan protokol adresleri aliniyor...")
+    """DeFi Llama'dan addresses"""
+    print("[*] DeFi Llama protocol addresses fetching...")
     raw = curl_get("https://api.llama.fi/protocols")
     if not raw:
-        print("  ERR DeFi Llama erisim yok")
+        print("  cannot access DeFi Llama API")
         return []
     try:
         protocols = json.loads(raw)
@@ -234,19 +233,18 @@ def get_defillama_contracts():
             addr = p.get("address", "")
             if addr and addr.startswith("0x") and len(addr) == 42:
                 addrs.append(addr)
-        print(f"  >> {len(addrs)} protokol adresi bulundu")
+        print(f"  >> {len(addrs)} protocol addresses found")
         return addrs[:60]
     except Exception as e:
         print(f"  ERR parse: {e}")
         return []
     
 def get_coingecko_tokens(limit=120):
-    """CoinGecko'dan Ethereum ERC20 token adreslerini ceker (ucretsiz, key yok).
-    ERC20 tokenlar STORAGE_MANIP sinifi icin idealdir: mapping+SSTORE yogun."""
-    print(f"[*] CoinGecko'dan ERC20 token adresleri aliniyor (hedef: {limit})...")
+    """CoinGecko'dan Ethereum ERC20 token adresses fetching"""
+    print(f"[*] fetching (aim: {limit})...")
     raw = curl_get("https://api.coingecko.com/api/v3/coins/list?include_platform=true")
     if not raw:
-        print("  ERR CoinGecko erisim yok")
+        print("  cannot access CoinGecko API")
         return []
     try:
         coins = json.loads(raw)
@@ -300,7 +298,6 @@ def main():
     new_rows = []
 
     # 1. Uniswap V2 factory'den otomatik pair adresleri
-    # NOT: UniV2 pair'lerin tumu ayni bytecode'u paylasiyor, sadece 1 unique ekler
     uni_pairs = get_uniswap_v2_pairs(api_key, count=20)
     print()
     process_addresses(uni_pairs, "FACTORY_ATTACK", "UniV2Pair", api_key, seen, new_rows)

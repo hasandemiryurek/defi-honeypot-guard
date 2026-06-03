@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>Honeypot AI Dashboard</title>
+<title>Attack Monitoring Page</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #0d1117; color: #c9d1d9; font-family: monospace; padding: 20px; }
@@ -27,16 +27,16 @@
 </style>
 </head>
 <body>
-<h1>🛡 Honeypot AI Monitor</h1>
+<h1>🛡 Attack Monitoring Page</h1>
 <div class="cards" id="cards">
-  <div class="card"><h3>TOPLAM OLAY</h3><div class="val" id="total">—</div></div>
+  <div class="card"><h3>NUMBER OF EVENTS</h3><div class="val" id="total">—</div></div>
   <div class="card"><h3>CRITICAL</h3><div class="val CRITICAL" id="cnt-CRITICAL">0</div></div>
   <div class="card"><h3>HIGH</h3><div class="val HIGH" id="cnt-HIGH">0</div></div>
   <div class="card"><h3>MEDIUM</h3><div class="val MEDIUM" id="cnt-MEDIUM">0</div></div>
   <div class="card"><h3>LOW</h3><div class="val LOW" id="cnt-LOW">0</div></div>
 </div>
 <table>
-  <thead><tr><th>Zaman</th><th>Saldırı Tipi</th><th>Sınıf</th><th>Şiddet</th><th>Güven</th><th>Adres</th></tr></thead>
+  <thead><tr><th>Time</th><th>Attack Type</th><th>Class</th><th>Severity</th><th>Confidence</th><th>Address</th></tr></thead>
   <tbody id="tbody"></tbody>
 </table>
 <script>
@@ -53,7 +53,7 @@ async function refresh() {
   tbody.innerHTML = threats.map(t => {
     const r = t.report, e = t.event;
     const sev = r.severity;
-    const time = t.timestamp.replace('T',' ').slice(0,19);
+    const time = new Date(t.timestamp).toLocaleString('tr-TR', {timeZone: 'Europe/Istanbul'}).slice(0,17);
     return `<tr>
       <td>${time}</td>
       <td>${e.attackType}</td>

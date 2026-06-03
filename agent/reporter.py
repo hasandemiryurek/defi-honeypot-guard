@@ -11,10 +11,10 @@ RESET = "\033[0m"
 def build_report(event, attack_class, confidence, is_contract, features) -> dict:
     rules      = THREAT_RULES.get(attack_class, THREAT_RULES["BENIGN"])
     extra_iocs = []
-    if features[2] > 5:  extra_iocs.append(f"Yuksek CALL opcode sayisi: {int(features[2])}")
-    if features[3] > 0:  extra_iocs.append(f"SELFDESTRUCT sayisi: {int(features[3])}")
-    if features[4] > 2:  extra_iocs.append(f"CREATE/CREATE2 sayisi: {int(features[4])}")
-    if features[5] > 3:  extra_iocs.append(f"SSTORE sayisi: {int(features[5])}")
+    if features[2] > 5:  extra_iocs.append(f"Higher CALL density: {int(features[2])}")
+    if features[3] > 0:  extra_iocs.append(f"SELFDESTRUCT count: {int(features[3])}")
+    if features[4] > 2:  extra_iocs.append(f"CREATE/CREATE2 count: {int(features[4])}")
+    if features[5] > 3:  extra_iocs.append(f"SSTORE count: {int(features[5])}")
     return {
         "attack_class":             attack_class,
         "severity":                 rules["severity"],
@@ -33,23 +33,23 @@ def print_report(event, report):
     color = SEVERITY_COLOR.get(sev, "")
     sep   = "=" * 70
     print(f"\n{color}{sep}")
-    print(f"  [HONEYPOT] TEHDIT RAPORU — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  [HONEYPOT] THREAT REPORT — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(sep + RESET)
-    print(f"  Adres    : {event.get('actor', '?')}")
-    print(f"  Sinyal   : {event.get('attackType', '?')}")
-    print(f"  Profil   : {report['attacker_profile']}")
-    print(f"{color}  Siddet   : {sev}{RESET}")
-    print(f"  Sinif    : {report['attack_class']}")
-    print(f"  Guven    : %{report['confidence']}")
+    print(f"  Address  : {event.get('actor', '?')}")
+    print(f"  Signal   : {event.get('attackType', '?')}")
+    print(f"  Profile  : {report['attacker_profile']}")
+    print(f"{color}  Severity : {sev}{RESET}")
+    print(f"  Class    : {report['attack_class']}")
+    print(f"  Confidence : {report['confidence']}%")
     print(f"  MITRE    : {report['mitre_technique']}")
     print(f"  ETH      : {Web3.from_wei(event.get('value', 0), 'ether')} ETH")
     print("\n  IOC:")
     for ioc in report["indicators_of_compromise"]:
         print(f"    • {ioc}")
-    print("\n  Savunma:")
+    print("\n  Defenses:")
     for d in report["recommended_defenses"]:
         print(f"    • {d}")
-    print(f"\n  Ozet: {report['summary']}")
+    print(f"\n  Summary: {report['summary']}")
     print(f"{color}{sep}{RESET}\n")
 
 
